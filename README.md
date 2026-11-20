@@ -12,7 +12,7 @@ O código não tem estágios a narrar, então os conceitos estão na ordem em qu
 
 ### 1. `extends` e a cadeia de construtores com `super(...)`
 
-`RelatorioCSV` e `RelatorioHTML` são um `Relatorio` (relação *é um*). Nenhuma delas guarda o nome do arquivo ou a lista de pagamentos: entregam esses dados à superclasse e só acrescentam a extensão que as diferencia.
+`FormatadorCSV` e `FormatadorHTML` são um `Relatorio` (relação *é um*). Nenhuma delas guarda o nome do arquivo ou a lista de pagamentos: entregam esses dados à superclasse e só acrescentam a extensão que as diferencia.
 
 ```java
 public class RelatorioCSV extends Relatorio {
@@ -23,7 +23,7 @@ public class RelatorioCSV extends Relatorio {
 ```
 
 **Por que essa decisão?**
-* O construtor da subclasse recebe só o nome base (`"pagamentos"`), e a extensão vem do *tipo*. A alternativa óbvia, passar `"pagamentos.csv"` de fora, permitiria criar um `RelatorioCSV` chamado `"pagamentos.html"`.
+* O construtor da subclasse recebe só o nome base (`"pagamentos"`), e a extensão vem do *tipo*. A alternativa óbvia, passar `"pagamentos.csv"` de fora, permitiria criar um `FormatadorCSV` chamado `"pagamentos.html"`.
 * A subclasse não repete os campos da superclasse: o estado continua em um único lugar.
 
 ### 2. `private` nos campos, `protected` nos métodos
@@ -68,12 +68,12 @@ public class Relatorio {
 
 **Por que essa decisão?**
 * Sem `super.gerarRelatorio()`, o cabeçalho seria copiado em cada formato, e mudá-lo exigiria editar todas as classes.
-* `@Override` faz o compilador conferir que existe mesmo um método a sobrescrever. Um erro de digitação em `gerarRelatorio` vira erro de compilação, e não um método novo que ninguém chama.
+* `@Override` faz o compilador conferir que existe mesmo um método a sobrescrever. Um erro de digitação em `formatar` vira erro de compilação, e não um método novo que ninguém chama.
 * Custo real desse desenho: se uma subclasse *esquecer* o `super.`, o cabeçalho some sem nenhum aviso. Esse é um dos motivos pelos quais existem outras formas de organizar esse reuso.
 
 ### 4. Sobrescrita seletiva: herdar é o padrão, sobrescrever é a exceção
 
-Só `RelatorioCSV` sobrescreve `getVersao()`. `RelatorioHTML` herda o comportamento da superclasse sem escrever nada.
+Só `FormatadorCSV` sobrescreve `getVersao()`. `FormatadorHTML` herda o comportamento da superclasse sem escrever nada.
 
 ```java
   @Override
@@ -98,7 +98,7 @@ O ponto mais fácil de passar despercebido. `Relatorio.gerarRelatorio()` chama `
   }
 ```
 
-Quando o objeto é um `RelatorioCSV`, esse mesmo código, escrito na superclasse, executa o `getVersao()` *da subclasse* e imprime `v0.1.1`. Para um `RelatorioHTML`, imprime `v0.1`. O teste abaixo fixa esse comportamento:
+Quando o objeto é um `FormatadorCSV`, esse mesmo código, escrito na superclasse, executa o `getVersao()` *da subclasse* e imprime `v0.1.1`. Para um `FormatadorHTML`, imprime `v0.1`. O teste abaixo fixa esse comportamento:
 
 ```java
   @Test
@@ -114,7 +114,7 @@ Quando o objeto é um `RelatorioCSV`, esse mesmo código, escrito na superclasse
 
 **Por que isso importa?**
 * O método executado é decidido pelo tipo do *objeto* em tempo de execução, não pelo tipo da *variável* (`Relatorio`). É isso que sustenta o polimorfismo.
-* Quem escreveu `Relatorio` não conhecia `RelatorioCSV` e, mesmo assim, o código dele passa a usar o comportamento novo.
+* Quem escreveu `Relatorio` não conhecia `FormatadorCSV` e, mesmo assim, o código dele passa a usar o comportamento novo.
 
 ### 6. Polimorfismo: quem usa não precisa saber o formato
 
@@ -160,7 +160,7 @@ Quem herda tem acesso a `getPagamentos()`, mas não deve poder corromper o estad
 
 ### 9. Quando *não* usar herança
 
-Este exemplo usa herança porque o objetivo é ensiná-la, mas vale desconfiar dele. `RelatorioCSV` e `RelatorioHTML` diferem apenas em *como formatam os pagamentos*, e o resto (nome, versão, cabeçalho) é igual. Isso se resolve com **composição**: um único `Relatorio` que recebe um objeto formatador (CSV, HTML, ...) e delega a ele a montagem do corpo. Essa versão não está implementada neste repositório.
+Este exemplo usa herança porque o objetivo é ensiná-la, mas vale desconfiar dele. `FormatadorCSV` e `FormatadorHTML` diferem apenas em *como formatam os pagamentos*, e o resto (nome, versão, cabeçalho) é igual. Isso se resolve com **composição**: um único `Relatorio` que recebe um objeto formatador (CSV, HTML, ...) e delega a ele a montagem do corpo. Essa versão não está implementada neste repositório.
 
 **Como decidir?**
 * Herança serve quando existe uma relação *é um* estável e o comportamento herdado faz sentido para todas as subclasses.
@@ -194,11 +194,11 @@ Também dá para abrir o projeto no IntelliJ IDEA e executar `br.ufc.qx.main.Mai
 ## 📖 Como usar este repositório para estudo
 
 * Rode o `Main` e leia a saída acompanhando o código: observe que o HTML imprime `Versão v0.1` e o CSV `Versão v0.1.1`, sendo que quem imprime a versão é sempre o mesmo método de `Relatorio`.
-* Apague o método `getVersao()` de `RelatorioCSV` e rode `./gradlew test`: veja quais testes falham e por quê. Depois troque `@Override` por um erro de digitação no nome do método e veja o compilador reclamar.
-* Apague a linha `super.gerarRelatorio()` de `RelatorioHTML` e observe o que sai do relatório e o que os testes acusam. Depois compare com o risco descrito no item 3.
+* Apague o método `getVersao()` de `FormatadorCSV` e rode `./gradlew test`: veja quais testes falham e por quê. Depois troque `@Override` por um erro de digitação no nome do método e veja o compilador reclamar.
+* Apague a linha `super.gerarRelatorio()` de `FormatadorHTML` e observe o que sai do relatório e o que os testes acusam. Depois compare com o risco descrito no item 3.
 * Crie um `RelatorioMarkdown` que estenda `Relatorio` e note que nem `Relatorio` nem `Main` precisam mudar para o novo formato existir.
 * Note que `new Relatorio("x", pagamentos)` compila e gera só um cabeçalho. Pergunte-se se um objeto assim faz sentido e como a linguagem poderia impedi-lo. Essa pergunta é o ponto de partida das classes abstratas.
-* Reflita sobre o item 9: o que ganharia e o que perderia esse código se `RelatorioCSV` e `RelatorioHTML` fossem trocados por um formatador injetado?
+* Reflita sobre o item 9: o que ganharia e o que perderia esse código se `FormatadorCSV` e `FormatadorHTML` fossem trocados por um formatador injetado?
 
 ---
 Desenvolvido por [Bruno Mateus](https://github.com/brunomateus) para fins didáticos.

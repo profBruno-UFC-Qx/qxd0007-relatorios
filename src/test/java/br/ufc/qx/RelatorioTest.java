@@ -8,7 +8,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RelatorioTest {
 
@@ -21,79 +20,62 @@ class RelatorioTest {
   }
 
   @Test
-  void relatorioBaseRetornaCabecalhoComVersaoBase() {
-    Relatorio relatorio = new Relatorio("base.txt", pagamentos);
+  void relatorioComFormatadorCsvGeraLinhaDeColunasEUmaLinhaPorPagamento() {
+    Relatorio relatorio = new Relatorio(pagamentos);
 
     assertEquals(linhas(
-            "Imprimindo relatório base.txt",
-            "Versão v0.1",
-            "-----------------------------"), relatorio.gerarRelatorio());
-  }
-
-  @Test
-  void relatorioCsvReaproveitaCabecalhoEUsaVersaoSobrescrita() {
-    Relatorio relatorio = new RelatorioCSV("pagamentos", pagamentos);
-
-    assertEquals(linhas(
-            "Imprimindo relatório pagamentos.csv",
-            "Versão v0.1.1",
-            "-----------------------------",
-            "Gerando arquivo csv",
+            "destino,valor",
             "Aluguel,1500.0",
-            "Energia,230.5"), relatorio.gerarRelatorio());
+            "Energia,230.5"), relatorio.gerarRelatorio(new FormatadorCSV()));
   }
 
   @Test
-  void relatorioHtmlReaproveitaCabecalhoEMantemVersaoDaBase() {
-    Relatorio relatorio = new RelatorioHTML("pagamentos", pagamentos);
+  void relatorioComFormatadorHtmlGeraTabela() {
+    Relatorio relatorio = new Relatorio(pagamentos);
 
     assertEquals(linhas(
-            "Imprimindo relatório pagamentos.html",
-            "Versão v0.1",
-            "-----------------------------",
-            "Gerando arquivo HTML",
             "<table>",
+            "  <tr><th>Destino</th><th>Valor</th></tr>",
             "  <tr><td>Aluguel</td><td>1500.0</td></tr>",
             "  <tr><td>Energia</td><td>230.5</td></tr>",
-            "</table>"), relatorio.gerarRelatorio());
+            "</table>"), relatorio.gerarRelatorio(new FormatadorHTML()));
   }
 
   @Test
-  void variavelDoTipoBaseExecutaOMetodoDaSubclasse() {
-    Relatorio relatorio = new RelatorioCSV("pagamentos", pagamentos);
+  void novoFormatoPodeSerCriadoComLambdaSemMudarRelatorio() {
+    Relatorio relatorio = new Relatorio(pagamentos);
+    Formatador apenasDestinos = ps -> {
+      StringBuilder saida = new StringBuilder();
+      for (Pagamento p : ps) {
+        saida.append(p.getDestino()).append("\n");
+      }
+      return saida.toString();
+    };
 
-    String saida = relatorio.gerarRelatorio();
-
-    assertTrue(saida.contains("Versão v0.1.1"));
-    assertTrue(saida.contains("Gerando arquivo csv"));
+    assertEquals(linhas("Aluguel", "Energia"), relatorio.gerarRelatorio(apenasDestinos));
   }
 
   @Test
-  void relatorioSemPagamentosGeraApenasCabecalhoECorpoVazio() {
-    Relatorio relatorio = new RelatorioCSV("vazio", List.of());
+  void relatorioNaoPodeSerGeradoSemFormatador() {
+    Relatorio relatorio = new Relatorio(pagamentos);
 
-    assertEquals(linhas(
-            "Imprimindo relatório vazio.csv",
-            "Versão v0.1.1",
-            "-----------------------------",
-            "Gerando arquivo csv"), relatorio.gerarRelatorio());
+    assertThrows(NullPointerException.class, () -> relatorio.gerarRelatorio(null));
+  }
+
+  @Test
+  void relatorioSemPagamentosGeraApenasALinhaDeColunas() {
+    Relatorio relatorio = new Relatorio(List.of());
+
+    assertEquals(linhas("destino,valor"), relatorio.gerarRelatorio(new FormatadorCSV()));
   }
 
   @Test
   void relatorioNaoSofreAlteracoesNaListaOriginal() {
     List<Pagamento> original = new ArrayList<>(pagamentos);
-    Relatorio relatorio = new RelatorioCSV("pagamentos", original);
+    Relatorio relatorio = new Relatorio(original);
 
     original.add(new Pagamento("Internet", 99.9));
 
-    assertFalse(relatorio.gerarRelatorio().contains("Internet"));
-  }
-
-  @Test
-  void listaExpostaParaSubclassesNaoPodeSerModificada() {
-    Relatorio relatorio = new Relatorio("base.txt", pagamentos);
-
-    assertThrows(UnsupportedOperationException.class,
-            () -> relatorio.getPagamentos().add(new Pagamento("Internet", 99.9)));
+    assertFalse(relatorio.gerarRelatorio(new FormatadorCSV()).contains("Internet"));
   }
 }

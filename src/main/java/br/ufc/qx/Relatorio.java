@@ -1,29 +1,18 @@
 package br.ufc.qx;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Relatorio {
 
-  private final String nome;
   private final List<Pagamento> pagamentos;
-  private final String versao = "0.1";
 
-  public Relatorio(String nome, List<Pagamento> pagamentos) {
-    this.nome = nome;
+  public Relatorio(List<Pagamento> pagamentos) {
     this.pagamentos = List.copyOf(pagamentos);
   }
 
-  protected String getVersao() {
-    return "v" + versao;
-  }
-
-  protected List<Pagamento> getPagamentos() {
-    return pagamentos;
-  }
-
-  public String gerarRelatorio() {
-    return "Imprimindo relatório " + nome + "\n"
-            + "Versão " + getVersao() + "\n"
-            + "-----------------------------\n";
+  public String gerarRelatorio(Formatador formatador) {
+    Objects.requireNonNull(formatador, "Um relatório precisa de um formatador");
+    return formatador.formatar(pagamentos);
   }
 }

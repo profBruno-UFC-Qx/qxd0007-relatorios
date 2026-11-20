@@ -1,9 +1,6 @@
 package br.ufc.qx.main;
 
-import br.ufc.qx.Pagamento;
-import br.ufc.qx.Relatorio;
-import br.ufc.qx.RelatorioCSV;
-import br.ufc.qx.RelatorioHTML;
+import br.ufc.qx.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,10 +18,11 @@ public class Main {
     pagamentos.add(p3);
     pagamentos.add(p4);
 
-    Relatorio relatorio = new RelatorioHTML("pagamentos", pagamentos);
-    System.out.print(relatorio.gerarRelatorio());
+    Relatorio relatorio = new Relatorio(pagamentos);
+    //CSV
+    System.out.print(relatorio.gerarRelatorio(new FormatadorCSV()));
+    //HTML
+    System.out.print(relatorio.gerarRelatorio(new FormatadorHTML()));
 
-    relatorio = new RelatorioCSV("pagamentos", pagamentos);
-    System.out.print(relatorio.gerarRelatorio());
   }
 }
