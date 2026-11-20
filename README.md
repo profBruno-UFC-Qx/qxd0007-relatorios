@@ -1,18 +1,20 @@
-# Relatório — herança, sobrescrita de métodos e polimorfismo em Java num exemplo mínimo
+# Relatório — da herança à composição, o mesmo polimorfismo em dois desenhos
 
-Este repositório é material de apoio da disciplina de Programação Orientada a Objetos (QXD0007). Ele existe para o aluno ler o código e sair sabendo: a sintaxe de herança em Java (`extends`, `super`, `@Override`), como a sobrescrita de métodos funciona de verdade (inclusive quando é a *superclasse* que chama o método) e por que isso faz do polimorfismo uma vantagem prática, e não só uma palavra da prova.
+Este repositório é material de apoio da disciplina de Programação Orientada a Objetos (QXD0007). Ele existe para o aluno ler o código em duas versões e sair sabendo: a sintaxe de herança em Java (`extends`, `super`, `@Override`), como a sobrescrita de métodos funciona de verdade (inclusive quando é a *superclasse* que chama o método), e por que, quando só uma *parte* do comportamento varia, vale trocar a herança por **composição** com uma interface.
 
 O domínio é deliberadamente pequeno: um `Relatorio` de `Pagamento`s que pode ser gerado em formato `CSV` ou `HTML`.
 
 ---
 
-## 🚀 Conceitos de Herança Explorados
+## 🏗️ Evolução da Arquitetura
 
-O código não tem estágios a narrar, então os conceitos estão na ordem em que vale a pena estudá-los: da sintaxe mais simples até as decisões de design.
+O projeto começa com uma hierarquia de classes (`RelatorioCSV` e `RelatorioHTML` estendem `Relatorio`) e termina com um único `Relatorio` que delega a formatação a um objeto que implementa a interface `Formatador`. O primeiro estágio está no commit `05c1de0`; o segundo chegou pelo branch `utilizando-interfaces` (PR #1).
 
-### 1. `extends` e a cadeia de construtores com `super(...)`
+### 1. Reuso por herança: `extends`, `super` e despacho dinâmico
 
-`FormatadorCSV` e `FormatadorHTML` são um `Relatorio` (relação *é um*). Nenhuma delas guarda o nome do arquivo ou a lista de pagamentos: entregam esses dados à superclasse e só acrescentam a extensão que as diferencia.
+Cada formato é uma subclasse de `Relatorio` (relação *é um*). A superclasse guarda o estado e monta o cabeçalho; as subclasses acrescentam o corpo.
+
+#### 1.1 `extends` e a cadeia de construtores com `super(...)`
 
 ```java
 public class RelatorioCSV extends Relatorio {
@@ -23,12 +25,10 @@ public class RelatorioCSV extends Relatorio {
 ```
 
 **Por que essa decisão?**
-* O construtor da subclasse recebe só o nome base (`"pagamentos"`), e a extensão vem do *tipo*. A alternativa óbvia, passar `"pagamentos.csv"` de fora, permitiria criar um `FormatadorCSV` chamado `"pagamentos.html"`.
+* O construtor da subclasse recebe só o nome base (`"pagamentos"`), e a extensão vem do *tipo*. A alternativa óbvia, passar `"pagamentos.csv"` de fora, permitiria criar um `RelatorioCSV` chamado `"pagamentos.html"`.
 * A subclasse não repete os campos da superclasse: o estado continua em um único lugar.
 
-### 2. `private` nos campos, `protected` nos métodos
-
-A superclasse não entrega seus campos às subclasses. Entrega métodos.
+#### 1.2 `private` nos campos, `protected` nos métodos
 
 ```java
 public class Relatorio {
@@ -47,12 +47,10 @@ public class Relatorio {
 ```
 
 **Por que essa decisão?**
-* Com `protected String versao`, toda subclasse passaria a depender de como a versão é *representada*. Trocar o tipo do campo quebraria as subclasses. Como o acesso é por `getVersao()`, a superclasse pode mudar a representação sem que ninguém perceba.
+* Com `protected String versao`, toda subclasse passaria a depender de como a versão é *representada*. Como o acesso é por `getVersao()`, a superclasse pode mudar a representação sem que ninguém perceba.
 * `protected` em métodos define o que é permitido *a quem herda*, sem abrir para o resto do programa.
 
-### 3. `@Override` + `super.metodo()`: estender em vez de substituir
-
-`gerarRelatorio()` das subclasses não reescreve o cabeçalho. Parte do resultado da superclasse e acrescenta o corpo.
+#### 1.3 `@Override` + `super.metodo()`: estender em vez de substituir
 
 ```java
   @Override
@@ -68,12 +66,12 @@ public class Relatorio {
 
 **Por que essa decisão?**
 * Sem `super.gerarRelatorio()`, o cabeçalho seria copiado em cada formato, e mudá-lo exigiria editar todas as classes.
-* `@Override` faz o compilador conferir que existe mesmo um método a sobrescrever. Um erro de digitação em `formatar` vira erro de compilação, e não um método novo que ninguém chama.
-* Custo real desse desenho: se uma subclasse *esquecer* o `super.`, o cabeçalho some sem nenhum aviso. Esse é um dos motivos pelos quais existem outras formas de organizar esse reuso.
+* `@Override` faz o compilador conferir que existe mesmo um método a sobrescrever. Um erro de digitação em `gerarRelatorio` vira erro de compilação, e não um método novo que ninguém chama.
+* Custo real desse desenho: se uma subclasse *esquecer* o `super.`, o cabeçalho some sem nenhum aviso. Guarde esse ponto: ele é um dos motivos do estágio 2.
 
-### 4. Sobrescrita seletiva: herdar é o padrão, sobrescrever é a exceção
+#### 1.4 Sobrescrita seletiva
 
-Só `FormatadorCSV` sobrescreve `getVersao()`. `FormatadorHTML` herda o comportamento da superclasse sem escrever nada.
+Só `RelatorioCSV` sobrescreve `getVersao()`. `RelatorioHTML` herda o comportamento da superclasse sem escrever nada.
 
 ```java
   @Override
@@ -84,11 +82,10 @@ Só `FormatadorCSV` sobrescreve `getVersao()`. `FormatadorHTML` herda o comporta
 
 **Por que essa decisão?**
 * `super.getVersao() + ".1"` em vez de escrever `"v0.1.1"`: se a versão da superclasse mudar, o CSV acompanha. Um literal copiado ficaria silenciosamente desatualizado.
-* Ter uma subclasse que sobrescreve e outra que não mostra que herança é reuso: cada classe escreve só o que a diferencia.
 
-### 5. Despacho dinâmico: a superclasse chama, a subclasse responde
+#### 1.5 Despacho dinâmico: a superclasse chama, a subclasse responde
 
-O ponto mais fácil de passar despercebido. `Relatorio.gerarRelatorio()` chama `getVersao()`:
+`Relatorio.gerarRelatorio()` chama `getVersao()`:
 
 ```java
   public String gerarRelatorio() {
@@ -98,7 +95,7 @@ O ponto mais fácil de passar despercebido. `Relatorio.gerarRelatorio()` chama `
   }
 ```
 
-Quando o objeto é um `FormatadorCSV`, esse mesmo código, escrito na superclasse, executa o `getVersao()` *da subclasse* e imprime `v0.1.1`. Para um `FormatadorHTML`, imprime `v0.1`. O teste abaixo fixa esse comportamento:
+Quando o objeto é um `RelatorioCSV`, esse mesmo código, escrito na superclasse, executa o `getVersao()` *da subclasse* e imprime `v0.1.1`. Para um `RelatorioHTML`, imprime `v0.1`. O teste fixa esse comportamento:
 
 ```java
   @Test
@@ -114,11 +111,9 @@ Quando o objeto é um `FormatadorCSV`, esse mesmo código, escrito na superclass
 
 **Por que isso importa?**
 * O método executado é decidido pelo tipo do *objeto* em tempo de execução, não pelo tipo da *variável* (`Relatorio`). É isso que sustenta o polimorfismo.
-* Quem escreveu `Relatorio` não conhecia `FormatadorCSV` e, mesmo assim, o código dele passa a usar o comportamento novo.
+* Quem escreveu `Relatorio` não conhecia `RelatorioCSV` e, mesmo assim, o código dele passa a usar o comportamento novo.
 
-### 6. Polimorfismo: quem usa não precisa saber o formato
-
-Em `Main`, a mesma variável do tipo `Relatorio` recebe formatos diferentes, e a chamada não muda.
+#### 1.6 Polimorfismo: quem usa não precisa saber o formato
 
 ```java
     Relatorio relatorio = new RelatorioHTML("pagamentos", pagamentos);
@@ -131,48 +126,106 @@ Em `Main`, a mesma variável do tipo `Relatorio` recebe formatos diferentes, e a
 **Por que é uma vantagem?**
 * Um novo formato é uma nova classe. `Relatorio` e a chamada a `gerarRelatorio()` continuam como estão, sem `if`/`switch` por tipo espalhados pelo código.
 
-### 7. Herança sem quebrar o encapsulamento
+**O problema que fica para o próximo estágio:** `RelatorioCSV` e `RelatorioHTML` diferem apenas em *como formatam os pagamentos*. Mesmo assim, cada formato precisa ser um `Relatorio` inteiro, herdar o acoplamento com a superclasse (o `super.` que não pode ser esquecido) e ser escolhido na hora de *construir* o objeto.
 
-Quem herda tem acesso a `getPagamentos()`, mas não deve poder corromper o estado da superclasse.
+### 2. Substituindo herança por composição: a interface `Formatador`
+
+O que varia (a formatação) sai da hierarquia e vira um contrato próprio:
 
 ```java
-  public Relatorio(String nome, List<Pagamento> pagamentos) {
-    this.nome = nome;
+public interface Formatador {
+
+  String formatar(List<Pagamento> pagamentos);
+}
+```
+
+Cada formato agora *implementa* esse contrato, sem estender nada e sem conhecer `Relatorio`:
+
+```java
+public class FormatadorCSV implements Formatador {
+
+  @Override
+  public String formatar(List<Pagamento> pagamentos) {
+    StringBuilder relatorio = new StringBuilder();
+    relatorio.append("destino,valor\n");
+    for (Pagamento p : pagamentos) {
+      relatorio.append(p.getDestino()).append(",").append(p.getValor()).append("\n");
+    }
+    return relatorio.toString();
+  }
+}
+```
+
+E `Relatorio` deixa de ser superclasse: é uma classe só, que *tem* os pagamentos e *recebe* um formatador para delegar o trabalho.
+
+```java
+public class Relatorio {
+
+  private final List<Pagamento> pagamentos;
+
+  public Relatorio(List<Pagamento> pagamentos) {
     this.pagamentos = List.copyOf(pagamentos);
+  }
+
+  public String gerarRelatorio(Formatador formatador) {
+    Objects.requireNonNull(formatador, "Um relatório precisa de um formatador");
+    return formatador.formatar(pagamentos);
+  }
+}
+```
+
+**Por que essa decisão?**
+* **Composição em vez de herança:** só *uma parte* do comportamento variava. Com herança, cada formato carregava o relatório inteiro; com composição, cada formato carrega só o que o diferencia.
+* **Formato escolhido na chamada, não na construção:** o mesmo objeto `Relatorio` gera CSV e HTML. Na versão com herança, trocar de formato exigia criar outro objeto.
+  ```java
+      Relatorio relatorio = new Relatorio(pagamentos);
+      //CSV
+      System.out.print(relatorio.gerarRelatorio(new FormatadorCSV()));
+      //HTML
+      System.out.print(relatorio.gerarRelatorio(new FormatadorHTML()));
+  ```
+* **Fim do acoplamento com a superclasse:** não há `super.` para esquecer nem `protected` para expor. `getPagamentos()` sumiu: o formatador recebe a lista como parâmetro, e só enquanto formata.
+* **`Objects.requireNonNull` em vez de deixar o `NullPointerException` estourar dentro do formatador:** a falha acontece na entrada de `Relatorio`, com uma mensagem que diz o que faltou. O teste `relatorioNaoPodeSerGeradoSemFormatador` documenta isso.
+* **O polimorfismo continua, só mudou de lugar:** antes, o despacho dinâmico escolhia entre subclasses de `Relatorio`; agora, `formatador.formatar(...)` escolhe entre implementações de `Formatador`.
+
+#### 2.1 Interface com um único método: lambda vira formatador
+
+Como `Formatador` tem um único método abstrato, um novo formato não precisa nem de classe. O teste cria um na hora:
+
+```java
+  @Test
+  void novoFormatoPodeSerCriadoComLambdaSemMudarRelatorio() {
+    Relatorio relatorio = new Relatorio(pagamentos);
+    Formatador apenasDestinos = ps -> {
+      StringBuilder saida = new StringBuilder();
+      for (Pagamento p : ps) {
+        saida.append(p.getDestino()).append("\n");
+      }
+      return saida.toString();
+    };
+
+    assertEquals(linhas("Aluguel", "Energia"), relatorio.gerarRelatorio(apenasDestinos));
   }
 ```
 
-**Por que essa decisão?**
-* Guardar a referência recebida deixaria o relatório à mercê de quem criou a lista: alterá-la depois mudaria um relatório já construído. `List.copyOf` guarda uma cópia imutável, e `getPagamentos()` a devolve sem que uma subclasse consiga adicionar ou remover itens.
-* `Pagamento` também tem campos `final`: um objeto que não muda não precisa de cópia defensiva.
-* Os testes `relatorioNaoSofreAlteracoesNaListaOriginal` e `listaExpostaParaSubclassesNaoPodeSerModificada` documentam isso.
+**Por que isso importa?**
+* Na versão com herança, um novo formato era obrigatoriamente uma nova subclasse. Aqui, `Relatorio` está fechado para modificação e aberto para extensão de um jeito ainda mais leve.
 
-### 8. Testabilidade: retornar `String` em vez de imprimir
+#### 2.2 O que permaneceu: encapsulamento e testabilidade
 
-`gerarRelatorio()` devolve o texto, e quem chama decide o que fazer com ele. Só `Main` usa `System.out`.
+Duas decisões atravessaram a refatoração sem mudar:
 
-```java
-    System.out.print(relatorio.gerarRelatorio());
-```
+* **`List.copyOf` no construtor.** Guardar a referência recebida deixaria o relatório à mercê de quem criou a lista: alterá-la depois mudaria um relatório já construído. O teste `relatorioNaoSofreAlteracoesNaListaOriginal` existe nas duas versões. `Pagamento` tem campos `final`, então não precisa de cópia defensiva.
+* **Retornar `String` em vez de imprimir.** Só `Main` usa `System.out`. Com `System.out.println` dentro do método, o teste precisaria redirecionar a saída padrão; devolvendo `String`, ele vira um `assertEquals`.
 
-**Por que essa decisão?**
-* Com `System.out.println` dentro do método, o teste precisaria redirecionar a saída padrão. Devolvendo `String`, o teste vira uma comparação simples, e o mesmo método serviria para gravar em arquivo ou enviar por rede, sem mudar as classes.
-
-### 9. Quando *não* usar herança
-
-Este exemplo usa herança porque o objetivo é ensiná-la, mas vale desconfiar dele. `FormatadorCSV` e `FormatadorHTML` diferem apenas em *como formatam os pagamentos*, e o resto (nome, versão, cabeçalho) é igual. Isso se resolve com **composição**: um único `Relatorio` que recebe um objeto formatador (CSV, HTML, ...) e delega a ele a montagem do corpo. Essa versão não está implementada neste repositório.
-
-**Como decidir?**
-* Herança serve quando existe uma relação *é um* estável e o comportamento herdado faz sentido para todas as subclasses.
-* Composição serve quando só uma *parte* do comportamento varia. Ela evita o acoplamento entre superclasse e subclasse (como o risco do `super.` esquecido do item 3) e permite trocar o formato em tempo de execução, sem criar uma classe nova para cada combinação.
-* Pergunte-se: "o que muda é o objeto inteiro ou só uma parte dele?"
+**O que se perdeu, e vale notar:** o cabeçalho com nome e versão (`Imprimindo relatório ...`, `Versão v0.1.1`) não existe mais. Ele dependia justamente da herança e da sobrescrita de `getVersao()`. Se ele fosse necessário, onde ele deveria morar agora: em `Relatorio` ou em cada `Formatador`?
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 * **Java:** a linguagem do exemplo. Requer JDK 17 ou superior, por causa do Gradle 9.
 * **Gradle (wrapper 9.2.0):** compila o projeto e roda os testes, sem precisar instalar o Gradle.
-* **JUnit 5 (Jupiter, BOM 5.10.0):** os testes de `RelatorioTest`, que documentam o comportamento esperado de cada classe.
+* **JUnit 5 (Jupiter, BOM 5.10.0):** os testes de `RelatorioTest`, que documentam o comportamento esperado de cada versão.
 
 ## ▶️ Como executar
 
@@ -191,14 +244,22 @@ java -cp build/classes/java/main br.ufc.qx.main.Main
 
 Também dá para abrir o projeto no IntelliJ IDEA e executar `br.ufc.qx.main.Main` direto do editor.
 
+Para estudar a versão com herança (estágio 1):
+
+```bash
+git checkout 05c1de0
+```
+
+Volte para a versão atual com `git checkout main`.
+
 ## 📖 Como usar este repositório para estudo
 
-* Rode o `Main` e leia a saída acompanhando o código: observe que o HTML imprime `Versão v0.1` e o CSV `Versão v0.1.1`, sendo que quem imprime a versão é sempre o mesmo método de `Relatorio`.
-* Apague o método `getVersao()` de `FormatadorCSV` e rode `./gradlew test`: veja quais testes falham e por quê. Depois troque `@Override` por um erro de digitação no nome do método e veja o compilador reclamar.
-* Apague a linha `super.gerarRelatorio()` de `FormatadorHTML` e observe o que sai do relatório e o que os testes acusam. Depois compare com o risco descrito no item 3.
-* Crie um `RelatorioMarkdown` que estenda `Relatorio` e note que nem `Relatorio` nem `Main` precisam mudar para o novo formato existir.
-* Note que `new Relatorio("x", pagamentos)` compila e gera só um cabeçalho. Pergunte-se se um objeto assim faz sentido e como a linguagem poderia impedi-lo. Essa pergunta é o ponto de partida das classes abstratas.
-* Reflita sobre o item 9: o que ganharia e o que perderia esse código se `FormatadorCSV` e `FormatadorHTML` fossem trocados por um formatador injetado?
+* Faça o checkout de `05c1de0`, rode o `Main` e observe que o HTML imprime `Versão v0.1` e o CSV `Versão v0.1.1`, sendo que quem imprime a versão é sempre o mesmo método de `Relatorio`.
+* Ainda no estágio 1, apague a linha `super.gerarRelatorio()` de `RelatorioHTML` e veja o que sai do relatório e o que os testes acusam. Compare com o item 1.3.
+* Compare `git diff 05c1de0 main -- src/main` e observe quantas linhas *saíram* de `Relatorio` com a troca para composição.
+* No estágio 2, crie um `FormatadorMarkdown` que implemente `Formatador` e note que nem `Relatorio` nem os outros formatadores precisam mudar.
+* Escreva o mesmo formato Markdown como lambda num teste. Pergunte-se quando vale uma classe e quando basta uma lambda.
+* Tente recolocar o cabeçalho com versão (item 2.2) sem usar herança. Decida se ele é responsabilidade de `Relatorio` ou do `Formatador` e justifique.
 
 ---
 Desenvolvido por [Bruno Mateus](https://github.com/brunomateus) para fins didáticos.
